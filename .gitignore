@@ -1,0 +1,7 @@
+node_modules/
+tmp/
+output/
+.env
+.env.*
+.DS_Store
+Thumbs.db
