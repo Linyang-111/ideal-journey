@@ -1,6 +1,7 @@
 import {Book3D} from './book3d.js';
 import {nextState} from './state.mjs';
 const $=id=>document.getElementById(id), reduce=matchMedia('(prefers-reduced-motion: reduce)');
+let pendingBook=false;
 let state={phase:'shelf',active:null},motion=null,ghost=null,sourceElement=null;
 const specs=[
  {id:1,title:'洞察',p:[[180,327],[346,329],[360,341],[351,1048],[163,1048],[174,524],[119,524],[125,379],[178,382]]},
@@ -34,15 +35,19 @@ async function prepareAssets(){
   el.style.cssText=`left:${x/2048*100}%;top:${y/1150*100}%;width:${w/2048*100}%;height:${h/1150*100}%;z-index:${spec.id===4?9:spec.id===5?8:spec.id}`;
   if(active){el.setAttribute('aria-label',`抽出《${spec.title}》`);el.addEventListener('click',()=>select(spec,el))}else{el.setAttribute('role','img');el.setAttribute('aria-label',spec.title)}
   const art=new Image();art.src=spec.src;art.alt='';el.append(art);$('volumes').append(el);
-  function hover(on){if(state.phase!=='shelf')return;gsap.to(el,{y:on?-8:0,rotation:on?(spec.id%2?.55:-.55):0,duration:duration(.28),ease:'power2.out',overwrite:true});if(on)$('hint').textContent=active?`${spec.title} · 点击抽出`:'洞察 · 创造 · 审美 · 协同';else $('hint').textContent='轻触书脊 · 你可以从任何一本开始，慢慢认识我'}
+  function hover(on){if(state.phase!=='shelf'||pendingBook)return;gsap.to(el,{y:on?-8:0,rotation:on?(spec.id%2?.55:-.55):0,duration:duration(.28),ease:'power2.out',overwrite:true});if(on)$('hint').textContent=active?`${spec.title} · 点击抽出`:'洞察 · 创造 · 审美 · 协同';else $('hint').textContent='轻触书脊 · 你可以从任何一本开始，慢慢认识我'}
   el.addEventListener('pointerenter',()=>hover(true));el.addEventListener('pointerleave',()=>hover(false));el.addEventListener('focus',()=>hover(true));el.addEventListener('blur',()=>hover(false));
   if(active){spec.cover=({3:'assets/cover-creative-landscape.jpg',4:'assets/cover-about-design.png',5:'assets/cover-product-handdrawn.jpg',6:'assets/cover-aesthetic.svg'})[spec.id];if(spec.id===6)spec.cover='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(await (await fetch(spec.cover)).text());const preload=new Image();preload.src=spec.cover;}
  }
- await Promise.all(specs.filter(s=>[3,4,5].includes(s.id)).map(s=>book3d.preload(s)));
+
  document.body.dataset.phase='shelf';$('hint').textContent='轻触书脊 · 你可以从任何一本开始，慢慢认识我';
 }
-function select(spec,el){
- if(state.phase!=='shelf'||document.body.dataset.phase==='loading')return;send({type:'select',id:spec.id});sourceElement=el;
+async function select(spec,el){
+ if(pendingBook)return;
+ if(state.phase!=='shelf'||document.body.dataset.phase==='loading')return;
+ pendingBook=true;el.setAttribute('aria-busy','true');$('hint').textContent=`正在准备《${spec.title}》，首次打开需要加载素材…`;
+ try{await book3d.preload(spec);}catch(error){console.error('Book asset loading failed',spec.id,error);$('hint').textContent=`《${spec.title}》素材加载失败，请再点一次重试，也可以先打开其他书。`;return;}finally{pendingBook=false;el.removeAttribute('aria-busy');}
+ send({type:'select',id:spec.id});sourceElement=el;
  gsap.killTweensOf(el);gsap.set(el,{y:0,rotation:0});const box=el.getBoundingClientRect();
  ghost=document.createElement('div');ghost.className='ghost';ghost.innerHTML=`<img src="${spec.src}" alt="">`;document.body.append(ghost);gsap.set(ghost,{left:box.left,top:box.top,width:box.width,height:box.height});el.style.visibility='hidden';
  $('shelf').inert=true;$('viewer').hidden=false;$('scrim').hidden=false;gsap.set($('scrim'),{opacity:0});

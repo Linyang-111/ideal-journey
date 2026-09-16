@@ -22,6 +22,7 @@ export class Book3D {
  }
  resize(){const w=this.host.clientWidth*((this.host.classList.contains('reading-3d')||this.spec?.id===3)?1:2),h=this.host.clientHeight;if(!w||!h)return;if(this.w===w&&this.h===h)return;this.w=w;this.h=h;this.renderer.setSize(w,h,false);this.camera.aspect=w/h;this.focusPage(this.focusSide||0);}
  async preload(spec){
+  if(this.textures.has(spec.id))return;
   if(spec.id===3)this.creativePages=await createCreativeTextures();
   if(spec.id===4)this.aboutPages=await createAboutTextures();
   if(spec.id===5)this.productPages=await createProductTextures();
